@@ -38,7 +38,7 @@
     }
   },
   "sibling_experiment_P50": {
-    "without_tier_expected_apr": 0.94,
+    "honest_five_features": 0.94,
     "with_apr_gap_ratio_planted": 1.0
   },
   "unsafe_term_hits_remaining": 24
