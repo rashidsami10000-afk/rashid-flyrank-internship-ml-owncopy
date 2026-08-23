@@ -1,0 +1,19 @@
+{
+  "notebook": "w04_baseline_score.ipynb",
+  "generated_at_utc": "2026-08-23T21:46:10",
+  "lane": "L4_ctr_engagement_opportunity",
+  "feature_month": "2026-03",
+  "outcome_month_eval_only": "2026-04",
+  "pool_rows": 101441,
+  "labeled_rows": 88482,
+  "label_base_rate": 0.4826,
+  "random_queue_precision_at_50": 0.54,
+  "rule_precision_at_20": 0.9,
+  "rule_precision_at_50": 0.92,
+  "signal_verdicts": {
+    "ctr_vs_position_behind_needs_ctr_fix": "CONFIRMED",
+    "volume_behind_is_quick_win": "CONFIRMED"
+  },
+  "score_formula": "100 * max(0, 1 - ctr/tier_expected_ctr) * log10(impressions)",
+  "reason_code": "ctr_below_tier_benchmark"
+}
