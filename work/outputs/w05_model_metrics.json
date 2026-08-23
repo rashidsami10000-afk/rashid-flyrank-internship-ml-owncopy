@@ -1,0 +1,78 @@
+{
+  "notebook": "w05_model.ipynb",
+  "generated_at_utc": "2026-08-23T22:19:59+00:00",
+  "sklearn_version": "1.8.0",
+  "seed": 42,
+  "split": "GroupShuffleSplit(test_size=0.25, seed=42) by client_hash_id",
+  "n_train": 82325,
+  "n_test": 6157,
+  "holdout": [
+    {
+      "method": "base rate",
+      "P@20": 0.427,
+      "P@50": 0.427
+    },
+    {
+      "method": "random queue (seeded)",
+      "P@20": 0.45,
+      "P@50": 0.42
+    },
+    {
+      "method": "Week-4 rule (baseline)",
+      "P@20": 0.95,
+      "P@50": 0.92
+    },
+    {
+      "method": "Logistic Regression",
+      "P@20": 0.9,
+      "P@50": 0.94
+    },
+    {
+      "method": "Decision Tree (depth 3)",
+      "P@20": 0.95,
+      "P@50": 0.92
+    },
+    {
+      "method": "Gradient Boosting",
+      "P@20": 0.95,
+      "P@50": 0.92
+    }
+  ],
+  "cv5": [
+    {
+      "fold": 1,
+      "rule_P50": 0.98,
+      "lr_P50": 0.98,
+      "gb_P50": 0.98,
+      "base_rate": 0.491
+    },
+    {
+      "fold": 2,
+      "rule_P50": 0.9,
+      "lr_P50": 0.98,
+      "gb_P50": 0.9,
+      "base_rate": 0.549
+    },
+    {
+      "fold": 3,
+      "rule_P50": 0.98,
+      "lr_P50": 0.9,
+      "gb_P50": 0.9,
+      "base_rate": 0.432
+    },
+    {
+      "fold": 4,
+      "rule_P50": 0.96,
+      "lr_P50": 0.94,
+      "gb_P50": 0.9,
+      "base_rate": 0.415
+    },
+    {
+      "fold": 5,
+      "rule_P50": 0.94,
+      "lr_P50": 0.96,
+      "gb_P50": 0.96,
+      "base_rate": 0.525
+    }
+  ]
+}
