@@ -1,0 +1,42 @@
+{
+  "notebook": "w07_action_playbook.ipynb",
+  "generated_at_utc": "2026-08-23T23:22:24+00:00",
+  "sklearn_version": "1.8.0",
+  "seed": 42,
+  "ranking_engine": "Week-4 hand rule (kept over LR: measured equal, simpler)",
+  "queue_rows": 101441,
+  "batches": {
+    "P2 review": 55170,
+    "monitor": 17733,
+    "human check first": 16608,
+    "P1 review": 11930
+  },
+  "reason_codes": {
+    "moderate_undercapture_page1": 37470,
+    "deep_low_yield": 17733,
+    "striking_distance_gap": 17700,
+    "low_volume_manual_check": 16608,
+    "severe_undercapture_page1": 11930
+  },
+  "archetypes": {
+    "Healthy - leave alone": 46496,
+    "Page-one underperformer": 27040,
+    "Deep low-yield": 15880,
+    "Striking-distance candidate": 12025
+  },
+  "eval_base_rate": 0.483,
+  "rule_p50_replay": 0.92,
+  "exports": {
+    "queue_csv": "work/outputs/playbook_action_queue.csv",
+    "figures": [
+      "work/figures/fig1_archetype_mix.png",
+      "work/figures/fig2_capture_by_archetype.png",
+      "work/figures/fig3_precision_at_k.png"
+    ]
+  },
+  "monitoring_anchors": {
+    "base_rate": 0.483,
+    "rule_p50_floor": 0.85,
+    "median_client_monthly_impressions": 126091
+  }
+}
