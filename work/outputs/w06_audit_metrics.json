@@ -1,0 +1,45 @@
+{
+  "notebook": "w06_validation_audit.ipynb",
+  "generated_at_utc": "2026-08-23T22:59:15+00:00",
+  "seed": 42,
+  "before_after_splits": [
+    {
+      "split": "random (naive)",
+      "test_base_rate": 0.487,
+      "rule_P20": 0.95,
+      "rule_P50": 0.94,
+      "lr_P20": 0.95,
+      "lr_P50": 0.98,
+      "gb_P20": 1.0,
+      "gb_P50": 0.94
+    },
+    {
+      "split": "grouped by client",
+      "test_base_rate": 0.427,
+      "rule_P20": 0.95,
+      "rule_P50": 0.92,
+      "lr_P20": 0.9,
+      "lr_P50": 0.94,
+      "gb_P20": 0.95,
+      "gb_P50": 0.92
+    }
+  ],
+  "memorization_gap_P50": {
+    "rule": 0.02,
+    "logistic_regression": 0.04
+  },
+  "leakage_checks": {
+    "timeline_ok": true,
+    "product_flags_absent": true,
+    "grouped_overlap_zero": true,
+    "survivorship": {
+      "kept": 88482,
+      "dropped_no_april_label": 12959
+    }
+  },
+  "sibling_experiment_P50": {
+    "without_tier_expected_apr": 0.94,
+    "with_apr_gap_ratio_planted": 1.0
+  },
+  "unsafe_term_hits_remaining": 24
+}
