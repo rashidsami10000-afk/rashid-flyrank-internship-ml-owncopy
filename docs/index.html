@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Which Pages Deserve Review First? A Validated CTR-Opportunity Queue on Real Search Data</title>
+<meta name="description" content="A hand-built ranking rule, honestly validated on 101k page-months of production search data, sends a content analyst to the right pages first.">
+<style>
+  :root { --text:#1a1a1a; --muted:#666; --accent:#0f62a8; --rule:#e3e3e3; }
+  * { box-sizing:border-box; }
+  body { margin:0; color:var(--text);
+         font:17px/1.65 Georgia,'Times New Roman',serif;
+         background:#fdfdfc; }
+  main { max-width:740px; margin:0 auto; padding:48px 22px 80px; }
+  h1,h2,h3,.sans { font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  h1 { font-size:1.9em; line-height:1.25; margin:.2em 0 .4em; }
+  h2 { font-size:1.25em; margin:2.2em 0 .5em; border-bottom:2px solid var(--rule); padding-bottom:.25em; }
+  h3 { font-size:1.02em; margin:1.6em 0 .4em; }
+  p  { margin:0 0 1.05em; }
+  a  { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .byline { color:var(--muted); font-family:-apple-system,'Segoe UI',sans-serif;
+            font-size:.85em; margin-bottom:2em; }
+  .abstract { background:#f4f6f8; border-left:4px solid var(--accent);
+              padding:16px 20px; margin:1.5em 0; }
+  nav.toc { font-family:-apple-system,'Segoe UI',sans-serif; font-size:.86em;
+            background:#fafafa; border:1px solid var(--rule); border-radius:6px;
+            padding:12px 18px; margin:1.6em 0; }
+  nav.toc a { display:inline-block; margin:2px 10px 2px 0; }
+  figure { margin:1.6em 0; text-align:center; }
+  figure img { max-width:100%; height:auto; border:1px solid var(--rule); border-radius:4px; }
+  figcaption { font-family:-apple-system,'Segoe UI',sans-serif; font-size:.83em;
+               color:var(--muted); text-align:left; margin-top:.6em; line-height:1.45; }
+  table { border-collapse:collapse; width:100%; margin:1.2em 0;
+          font-family:-apple-system,'Segoe UI',sans-serif; font-size:.86em; }
+  th,td { padding:7px 10px; border-bottom:1px solid var(--rule); text-align:right; }
+  th:first-child, td:first-child { text-align:left; }
+  th { border-bottom:2px solid #bbb; font-weight:600; }
+  tr.hl td { background:#eef4fb; font-weight:600; }
+  ul,ol { padding-left:1.3em; } li { margin-bottom:.45em; }
+  code { font-family:Consolas,Menlo,monospace; font-size:.82em;
+         background:#f0f0ee; padding:1px 5px; border-radius:3px; }
+  .credit { border-top:1px solid var(--rule); margin-top:3em; padding-top:1.4em;
+            font-size:.9em; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Which pages deserve review first?<br>A validated CTR-opportunity queue built on production search data</h1>
+<p class="byline">Rashid Sami &middot; FlyRank ML Internship capstone &middot; Lane 4: CTR / Engagement Opportunity Scoring &middot; August 2026</p>
+
+<div class="abstract">
+<p><strong>Abstract.</strong> Content teams can review only a handful of pages a week, so the real question is not "which pages are weak?" but <em>which pages to open first</em>. Using FlyRank's internship warehouse — about 79&nbsp;million daily search-performance rows covering one pseudonymized portfolio — I built a page-month panel of 101,441 visible pages (March 2026) and asked which ones would under-capture their position tier's click-through rate the following month. A transparent hand rule — how far a page sits below its position-tier benchmark CTR, weighted by visibility — ranked the queue at Precision@50 of 0.92 against a 0.48 base rate, and a cross-validated logistic regression measured equal (0.952&nbsp;±&nbsp;0.033), so the simpler rule shipped. The validation design (client-grouped splits, a planted-leak harness, a memorization audit comparing naive and grouped splits) is reported alongside every number, and the known limits — 12.8% survivorship, saturated precision, one month pair — bound what the results can claim. The output is a human-reviewed action playbook with reason codes, no-go rules, and monitoring triggers, deployed here as decision-support rather than automation.</p>
+</div>
+
+<nav class="toc">
+<strong>Contents:</strong>
+<a href="#intro">Introduction</a>
+<a href="#data">Data</a>
+<a href="#method">Methodology</a>
+<a href="#results">Results</a>
+<a href="#limits">Limitations</a>
+<a href="#recs">Ranked recommendations</a>
+<a href="#repro">Reproducibility</a>
+<a href="#credit">Acknowledgments</a>
+</nav>
+
+<h2 id="intro">Introduction / Problem statement</h2>
+<p>A content analyst opens perhaps ten to fifty pages a week. Every hour spent on a page that never had upside is an hour not spent on one that did. FlyRank's product already surfaces candidate pages through hand-written flags — quick-win tags, needs-attention markers — chosen by experienced judgment and honest thresholds. The question this paper takes on is whether such a rule can be put on measured ground: does "capture far less CTR than your position tier predicts" actually identify next month's under-performers, how well does it rank them, and does a learned model beat it?</p>
+<p>The lane is scoring-for-ranking: one priority score per visible page, evaluated where it matters — at the top of the queue — by Precision@K against a held-out future outcome. Everything below is decision-support for one analyst's weekly session; nothing here automates an edit.</p>
+
+<h2 id="data">Data</h2>
+<p><strong>Source.</strong> The FlyRank internship warehouse release (build v20260703), hosted as Parquet on Hugging Face: ~79 million rows of daily search performance (<code>fact_content_daily_performance</code>, grain = report_date × client × content), plus dimension tables. All identifiers are pseudonymized hashes; no client names, domains, or raw queries appear in this work or its repository.</p>
+<p><strong>Windows.</strong> Features come from March 1–31, 2026 (the <code>month=2026-03</code> partition, 9,841,378 page-day rows). Labels come strictly after, April 1–30, 2026. One analysis row = one content page × one client summarized over March: <strong>101,441 visible pages</strong> (≥100 monthly impressions, positive average position).</p>
+<p><strong>Deliberate exclusions.</strong></p>
+<ul>
+<li><strong>The query-level table</strong> — its fixed 90-day window overlaps the outcome month, so its columns are not cleanly knowable at the decision moment.</li>
+<li><strong>All GA4 engagement columns</strong> — rows written before a client's analytics start date carry zero-filled values with an availability flag; only 4.2% of March rows pass <code>ga4_data_available IS TRUE</code>, and treating those zeros as "no engagement" would inject fake signal.</li>
+<li><strong>The June 2026 sample partition</strong> — the final month of the panel is the natural outcome window of any past→future label; it was treated as sealed throughout.</li>
+</ul>
+<p><strong>Labeled subset.</strong> 88,482 pages have usable April outcomes; the remaining 12.8% — pages absent from April, under 100 April impressions, or without a reliable benchmark — receive no label. This survivorship is disclosed everywhere it matters (&sect;<a href="#limits">Limitations</a>).</p>
+
+<h2 id="method">Methodology</h2>
+<h3>Features and label</h3>
+<p>Five March-only features: trailing CTR, average position, log-impressions, the position-tier expected-CTR benchmark (median March CTR among same-tier pages with ≥1,000 impressions), and the page's share of its client's impressions. The label is defined only from April: a page <em>under-captured its tier</em> if its April CTR fell below half the April tier-median CTR. Features know everything knowable on the morning of April 1; the label exists only after April ends.</p>
+<h3>Baseline</h3>
+<p>The baseline is a hand rule in the spirit of FlyRank's production flags:</p>
+<p style="text-align:center"><code>score = 100 × max(0, 1 − ctr ÷ tier_benchmark) × log₁₀(impressions)</code></p>
+<p>— capture-gap severity weighted by visibility, no fitted weights, one reason code per page (<code>ctr_below_tier_benchmark</code>). Two signal checks preceded it: median CTR falls monotonically across seven position bands (0.25% at positions 1–3 toward ~0% deep — confirming the logic behind position-relative CTR flags), and missed clicks concentrate in high-volume bands (the top two impression bands hold 86% of missed clicks with 44% of pages — confirming volume weighting). Both verdicts: CONFIRMED, with bucket sizes printed.</p>
+<h3>Validation design</h3>
+<ul>
+<li><strong>Client-grouped splits</strong> (GroupShuffleSplit 25%, seed 42; plus 5-fold GroupKFold) — pages from one client never straddle train/test, because clients share templates, authority, and instrumentation.</li>
+<li><strong>Memorization audit:</strong> re-running everything under a naive random split measures what grouping costs — random inflates P@50 by +0.02 (rule) to +0.04 (logistic regression). The naive number is the one a careless workflow would have reported.</li>
+<li><strong>Leakage checks:</strong> column-provenance timeline assert, product-flag absence assert, zero split overlap, survivorship quantification, and a planted-sibling experiment — adding the label's own numerator jumps Precision@50 from 0.94 to 1.00, then is deleted. The harness demonstrably catches leaks.</li>
+<li><strong>Reproducibility:</strong> seed 42 everywhere; library versions recorded; DuckDB row-order nondeterminism neutralized by sorting the frame before splitting (an earlier run's shallow-tree score swung 0.78→0.96 on tie order until fixed).</li>
+</ul>
+
+<h2 id="results">Results</h2>
+<p>All methods evaluated on identical client-grouped splits, base rate printed beside every number.</p>
+
+<table>
+<tr><th>Method (grouped holdout)</th><th>Precision@20</th><th>Precision@50</th></tr>
+<tr><td>Base rate</td><td>0.43</td><td>0.43</td></tr>
+<tr class="hl"><td>Hand rule (baseline)</td><td><strong>0.95</strong></td><td>0.92</td></tr>
+<tr><td>Logistic Regression</td><td>0.90</td><td><strong>0.94</strong></td></tr>
+<tr><td>Decision Tree (depth 3)</td><td>0.95</td><td>0.92</td></tr>
+<tr><td>Gradient Boosting</td><td>0.95</td><td>0.92</td></tr>
+</table>
+
+<table>
+<tr><th>5-fold grouped CV, P@50</th><th>mean ± std</th></tr>
+<tr class="hl"><td>Hand rule</td><td>0.952 ± 0.033</td></tr>
+<tr><td>Logistic Regression</td><td>0.952 ± 0.033</td></tr>
+<tr><td>Gradient Boosting</td><td>0.936 ± 0.050</td></tr>
+</table>
+
+<p><strong>Finding 1 — the simple rule holds.</strong> Logistic regression edges the rule at P@50 (0.94 vs 0.92) but loses at P@20 (0.90 vs 0.95); across folds they tie. Gradient boosting earns nothing extra. We observed no measurable ranking skill a learned model adds over the readable rule on these five features, so the playbook ships the rule.</p>
+<p><strong>Finding 2 — precision is near saturation.</strong> The model's top-50 and the rule's top-50 share <em>zero</em> pages yet score almost identically: with thousands of positives per test set, many orderings succeed, and ordering <em>within</em> "worth reviewing" is directional, not ground truth.</p>
+
+<figure>
+<img src="assets/fig3_precision_at_k.png" alt="Precision@K curve of the rule versus base rate">
+<figcaption><strong>Figure 1.</strong> Review precision decays gracefully with K: roughly 0.95 at K=20–50 against a 0.48 base rate, still far above chance at K=500. Reading the top of the queue is where the rule earns its keep.</figcaption>
+</figure>
+
+<p><strong>Finding 3 — most skill is persistence.</strong> Permutation importance puts March CTR first and the tier benchmark near zero; the model largely re-derives March's capture gap, and those gaps survive into April. That consistency — not foresight — is what the Precision@K measures, which is exactly why the number is honest to publish.</p>
+
+<h2 id="limits">Limitations &amp; honest framing</h2>
+<ul>
+<li><strong>Survivorship (12.8%).</strong> Pages that vanish or fall quiet in April get no label; the queue learns on survivors and says nothing about disappeared pages.</li>
+<li><strong>Observational design.</strong> No intervention was assigned. Nothing here supports "editing X will raise Y" — the claim ladder stops at decision-support.</li>
+<li><strong>One step-ahead window.</strong> A single March→April pair; seasonality, algorithm changes, and multi-year drift are unmeasured.</li>
+<li><strong>Benchmark sparsity.</strong> Tier benchmarks rest on same-month medians; support counts travel with each row, and thin-benchmark picks are flagged for extra scrutiny.</li>
+<li><strong>GSC-only signal.</strong> Engagement-side judgments are out of scope by contract.</li>
+<li><strong>Saturated metric.</strong> With precision near its ceiling, differences between methods at the top of the queue should be read as noise unless they survive multiple folds.</li>
+</ul>
+
+<h2 id="recs">Ranked recommendations — the action playbook</h2>
+<p>The shipped artifact is a weekly review queue of 101,441 visible pages, ranked by the validated rule, batched for a human analyst:</p>
+
+<table>
+<tr><th>Batch</th><th>Pages</th><th>Meaning</th></tr>
+<tr class="hl"><td>P1 review</td><td>11,930</td><td>severe page-one under-capture → rewrite title &amp; meta first</td></tr>
+<tr><td>P2 review</td><td>55,170</td><td>moderate gaps and striking-distance candidates → intent work</td></tr>
+<tr><td>Human check first</td><td>16,608</td><td>&lt;200 impressions — volume guard, analyst verifies before acting</td></tr>
+<tr><td>Monitor</td><td>17,733</td><td>deep-tier low-yield — watch, don't invest</td></tr>
+</table>
+
+<figure>
+<img src="assets/fig1_archetype_mix.png" alt="Queue composition by archetype">
+<figcaption><strong>Figure 2.</strong> Queue composition: four archetypes (page-one underperformer, striking-distance candidate, deep low-yield, healthy) map mechanically to actions with explicit change-clauses.</figcaption>
+</figure>
+
+<figure>
+<img src="assets/fig2_capture_by_archetype.png" alt="Capture ratio distribution by archetype">
+<figcaption><strong>Figure 3.</strong> Capture ratio by archetype. The red line marks half-of-benchmark; archetypes separate cleanly enough for a human to sanity-check any mechanical assignment at a glance.</figcaption>
+</figure>
+
+<p><strong>Every pick passes four human checks before an edit ships:</strong> instrumentation (is a near-zero CTR real?), intent &amp; SERP context (do SERP features suppress CTR regardless of quality?), cannibalization (would merging beat editing?), and sensitivity (YMYL routes senior). <strong>The no-go list:</strong> no auto-publishing, no deletions decided by scores alone, no cross-client bulk application, no causal claims about algorithms, no reading queue rank as page quality. <strong>Monitoring triggers,</strong> anchored to measured values: monthly rebuild; investigate if the label base rate drifts beyond ±10% relative from 0.483; re-validate if replayed rule P@50 falls below 0.85; freeze on schema change.</p>
+
+<h2 id="repro">Reproducibility</h2>
+<p>The full pipeline lives in one public repository, notebook per week, every headline number traceable to a committed metrics JSON:</p>
+<ul>
+<li>Repository: <a href="https://github.com/rashidsami10000-afk/rashid-flyrank-internship-ml-owncopy">github.com/rashidsami10000-afk/rashid-flyrank-internship-ml-owncopy</a></li>
+<li>Data contract &amp; three verification queries: <a href="https://github.com/rashidsami10000-afk/rashid-flyrank-internship-ml-owncopy/blob/main/work/notebooks/w03_data_contract.ipynb"><code>w03_data_contract.ipynb</code></a></li>
+<li>Rule baseline + signal verdicts: <a href="https://github.com/rashidsami10000-afk/rashid-flyrank-internship-ml-owncopy/blob/main/work/notebooks/w04_baseline_score.ipynb"><code>w04_baseline_score.ipynb</code></a></li>
+<li>Model vs baseline: <a href="https://github.com/rashidsami10000-afk/rashid-flyrank-internship-ml-owncopy/blob/main/work/notebooks/w05_model.ipynb"><code>w05_model.ipynb</code></a></li>
+<li>Validation &amp; claim audit: <a href="https://github.com/rashidsami10000-afk/rashid-flyrank-internship-ml-owncopy/blob/main/work/notebooks/w06_validation_audit.ipynb"><code>w06_validation_audit.ipynb</code></a></li>
+<li>Action playbook: <a href="https://github.com/rashidsami10000-afk/rashid-flyrank-internship-ml-owncopy/blob/main/work/notebooks/w07_action_playbook.ipynb"><code>w07_action_playbook.ipynb</code></a></li>
+<li>Executable paper twin: <a href="https://github.com/rashidsami10000-afk/rashid-flyrank-internship-ml-owncopy/blob/main/work/notebooks/capstone.ipynb"><code>capstone.ipynb</code></a> (reads committed receipts; runs without data access)</li>
+</ul>
+<p>Randomness is seeded (42) across splits, models, permutation importance and floors; library versions ship inside the receipts (scikit-learn 1.8.0, pandas 3.0.1, numpy 2.4.3). Following Sandve et al.'s reproducibility rules, statements connect to receipts, figures' underlying queues regenerate from notebooks, and the raw data stays gated upstream at Hugging Face (access on request). To rerun: clone the repo, request warehouse access, set an <code>HF_TOKEN</code> secret, run the notebooks in order.</p>
+
+<h2 id="credit">Acknowledgments &amp; data credit</h2>
+<p class="credit">
+This work is <strong>built on the <a href="https://flyrank.ai">FlyRank</a> ML Internship dataset</strong> — the pseudonymized internship warehouse release (build v20260703, ~79M rows of daily search performance) provided by <a href="https://flyrank.ai">FlyRank</a>, whose research program and hand-written flag philosophy motivated the baseline-first design. Thanks to the FlyRank data team for the curated public-safe release, and to the internship's reviewers, whose audits made this work more honest than my first drafts. All errors and overclaims that remain are mine.
+</p>
+
+</main>
+</body>
+</html>
